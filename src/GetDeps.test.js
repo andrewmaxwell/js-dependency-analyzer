@@ -18,7 +18,7 @@ const tests = [
 
     Startup(await GetVelocityUser(), history);
   })();`,
-    res: [
+    deps: [
       'CoreReducer',
       'GetVelocityUser',
       'Init',
@@ -30,10 +30,11 @@ const tests = [
       'Startup',
       'Subscribe',
       'createHistory'
-    ]
+    ],
+    decs: []
   },
   {
-    code: `exports.GetDeps = origCode => {
+    code: `const GetDeps = origCode => {
       const result = transform(origCode, {
         babelrc: false,
         plugins: ['transform-react-jsx'],
@@ -61,27 +62,37 @@ const tests = [
         };
       });
     };`,
-    res: ['builtIns', 'isDeclaredIn', 'nodesWhere', 'transform']
+    deps: ['builtIns', 'isDeclaredIn', 'nodesWhere', 'transform'],
+    decs: ['GetDeps']
   },
   {
     code: `const abc = ['things', true, stuff, {a: 4, b: things, fun}]`,
-    res: ['fun', 'stuff', 'things']
+    deps: ['fun', 'stuff', 'things'],
+    decs: ['abc']
   },
   {
     code: `import {pluck, map, pipe} from 'ramda';`,
-    res: []
+    deps: [],
+    decs: ['map', 'pipe', 'pluck']
   },
   {
     code: `const things = stuff ? otherStuff : moreOtherStuff`,
-    res: ['moreOtherStuff', 'otherStuff', 'stuff']
+    deps: ['moreOtherStuff', 'otherStuff', 'stuff'],
+    decs: ['things']
   }
 ];
 
+// const data = tests.map(t => GetDeps(t.code)[0]);
+// require('fs').writeFileSync('output.txt', JSON.stringify(data, null, 2));
+
 describe('GetDeps', () => {
-  tests.forEach(({code, res}) => {
+  tests.forEach(({code, deps, decs}) => {
     it('should list the dependencies', () => {
-      const {dependencies} = GetDeps(code)[0];
-      expect(dependencies.sort()).to.deep.equal(res.sort());
+      const {dependencies, declarations} = GetDeps(code)[0];
+      expect({dependencies, declarations}).to.deep.equal({
+        dependencies: deps,
+        declarations: decs
+      });
     });
   });
 });

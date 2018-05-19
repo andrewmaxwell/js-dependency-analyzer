@@ -10,9 +10,7 @@ module.exports = {
   },
   extends: [
     'eslint:recommended',
-    'prettier',
-    'plugin:import/errors',
-    'plugin:import/warnings'
+    'prettier'
   ],
   plugins: ['prettier'],
   rules: {
@@ -21,7 +19,6 @@ module.exports = {
     'no-var': 'error',
     'no-bitwise': 'error',
     'func-style': 'warn',
-    camelcase: 'warn',
     'no-octal-escape': 'error',
     'no-implicit-globals': 'error',
     'no-fallthrough': 'off',
