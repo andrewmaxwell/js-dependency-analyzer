@@ -1,5 +1,5 @@
-const {transform} = require('babel-core');
-const {nodesWhere} = require('./utils.js');
+import {transform} from 'babel-core';
+import {nodesWhere} from './utils.js';
 
 const EXCLUDED_PATH_ENDINGS = /(params,\d+|property|id|key|imported|local)$/;
 
@@ -15,7 +15,7 @@ const getDependencies = astNode =>
     .filter((val, i, arr) => arr.indexOf(val) === i)
     .sort();
 
-const GetDeps = origCode => {
+export const GetDeps = origCode => {
   const result = transform(origCode, {
     babelrc: false,
     plugins: ['transform-react-jsx', 'transform-object-rest-spread'],
@@ -28,7 +28,3 @@ const GetDeps = origCode => {
     astNode
   }));
 };
-
-// require('fs').writeFileSync('output.txt', JSON.stringify(astNode, null, 2));
-
-module.exports = {GetDeps};
