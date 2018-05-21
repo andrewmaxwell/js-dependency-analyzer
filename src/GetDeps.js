@@ -4,15 +4,15 @@ const fs = require('fs');
 const Path = require('path');
 
 const EXCLUDED_PATH_ENDINGS = /(params,\d+|property|id|key|imported|local)$/;
-const DECLARATION_PATH_ENDINGS = /(declarations,\d+,id|params,\d+),name$/;
-const ID_PATH = /^(declaration,)?declarations,\d+,id,name$/;
+const LOCAL_DECLARATION_PATH_ENDINGS = /(declarations,\d+,id|params,\d+),name$/;
+const DECLARATION_PATH = /^(declaration,)?declarations,\d+,id,name$/;
 const IMPORT_PATH = /source,value$/;
 const builtIns = ['document', 'window', 'module', 'require', 'Object', 'JSON'];
 
 const isDeclaredIn = (name, astNode) =>
   nodesWhere(
     (val, path) =>
-      val === name && DECLARATION_PATH_ENDINGS.test(path.join(',')),
+      val === name && LOCAL_DECLARATION_PATH_ENDINGS.test(path.join(',')),
     astNode
   ).length > 0;
 
@@ -31,13 +31,13 @@ const getBlockDeps = astNode =>
     )
     .sort();
 
-const getIds = astNode =>
+const getDeclarations = astNode =>
   nodesWhere(
-    (val, path) => val && ID_PATH.test(path.join(',')),
+    (val, path) => val && DECLARATION_PATH.test(path.join(',')),
     astNode
   ).sort();
 
-const getImports = astNode =>
+const getImportedFileNames = astNode =>
   nodesWhere(
     (val, path) => val && val[0] === '.' && IMPORT_PATH.test(path.join(',')),
     astNode
@@ -53,16 +53,23 @@ const getImports = astNode =>
 //   return result.ast.program.body.map(astNode => ({
 //     code: origCode.slice(astNode.start, astNode.end),
 //     dependencies: getBlockDeps(astNode),
-//     declarations: getIds(astNode),
+//     declarations: getDeclarations(astNode),
 //     astNode
 //   }));
 // };
 
+const fileNameToId = fileName =>
+  fileName
+    .replace('/Users/amaxw/js-dependency-analyzer/testSrc/', '') // todo
+    .replace('.js', '')
+    .replace(/[^a-zA-Z0-9]+/g, '-');
+
+const normalize = (from, to) => Path.normalize(Path.dirname(from) + '/' + to);
+
 const GetDeps = entryFileName => {
   const queue = [Path.resolve(entryFileName)];
-  const files = [];
   const res = {};
-  let counter = 1;
+  let counter = 0;
 
   for (let i = 0; i < queue.length; i++) {
     const fileName = queue[i];
@@ -75,64 +82,51 @@ const GetDeps = entryFileName => {
     }).ast.program.body;
 
     queue.push(
-      ...getImports(ast)
-        .map(p => Path.normalize(Path.dirname(fileName) + '/' + p))
+      ...getImportedFileNames(ast)
+        .map(p => normalize(fileName, p))
         .filter(val => !queue.includes(val))
     );
 
-    const fileId = fileName
-      .replace('/Users/amaxw/js-dependency-analyzer/testSrc/', '') // todo
-      .replace('.js', '')
-      .replace(/[^a-zA-Z0-9]+/g, '_');
-    files[i] = {fileId, ast};
+    const fileId = fileNameToId(fileName);
+
+    const importMapping = {};
 
     ast.forEach(astNode => {
+      const declarations = getDeclarations(astNode);
+      declarations.forEach(id => {
+        importMapping[id] = fileId + '_' + id;
+      });
+
       const func = {
         code: code.slice(astNode.start, astNode.end),
-        dependencies: getBlockDeps(astNode) //.map(dep => {
-        // todo: if declared in file, prefix with fileId, else use id of imported file
-        // })
+        dependencies: getBlockDeps(astNode).map(dep => {
+          if (!importMapping[dep]) {
+            console.log('No mapping found for', dep);
+          }
+          return importMapping[dep] || dep;
+        })
         // astNode
       };
-      const ids = getIds(astNode);
-      if (!ids.length && astNode.type !== 'ImportDeclaration') {
-        res[fileId + '_anon' + counter++] = func;
+
+      if (astNode.type === 'ImportDeclaration') {
+        const impFileId = fileNameToId(
+          normalize(fileName, astNode.source.value)
+        );
+        astNode.specifiers.forEach(sp => {
+          if (sp.imported) {
+            importMapping[sp.imported.name] =
+              impFileId + '_' + sp.imported.name;
+          }
+        });
+      } else if (!declarations.length) {
+        res[fileId + '_' + counter++] = func;
       }
-      ids.forEach(id => {
+
+      declarations.forEach(id => {
         res[fileId + '_' + id] = func;
       });
     });
   }
-  // fileName = Path.resolve(fileName);
-  // const code = fs.readFileSync(fileName).toString();
-  // const result = transform(code, {
-  //   babelrc: false,
-  //   plugins: ['transform-react-jsx', 'transform-object-rest-spread'],
-  //   code: false
-  // });
-  //
-  // return result.ast.program.body.reduce((res, astNode) => {
-  //   if (astNode.type === 'ImportDeclaration') {
-  //     const imFileName = getImports(astNode)[0];
-  //     if (imFileName[0] === '.') {
-  //       // const abs = Path.normalize(Path.dirname(fileName) + '/' + imFileName);
-  //       // console.log('abs', abs);
-  //       // Object.assign(res, GetDeps(abs));
-  //     }
-  //   } else {
-  //     const func = {
-  //       code: code.slice(astNode.start, astNode.end),
-  //       dependencies: getBlockDeps(astNode)
-  //       // astNode
-  //     };
-  //     getIds(astNode).forEach(id => {
-  //       res[id] = func;
-  //     });
-  //   }
-  //
-  //   return res;
-  // }, {});
-
   return res;
 };
 

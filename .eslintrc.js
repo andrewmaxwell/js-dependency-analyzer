@@ -24,7 +24,7 @@ module.exports = {
     'no-fallthrough': 'off',
     'no-extend-native': 'error',
     'no-eval': 'error',
-    'no-empty-function': 'warn',
+    'no-empty': 'warn',
     'no-caller': 'error',
     'no-alert': 'warn',
     'no-console': 'off',

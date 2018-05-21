@@ -100,59 +100,34 @@ require('fs').writeFileSync('output.txt', JSON.stringify(data, null, 2));
 describe('GetDeps', () => {
   it('should build a dependency graph of a project', () => {
     expect(GetDeps('./testSrc/main.js')).to.deep.equal({
-      GetDeps_EXCLUDED_PATH_ENDINGS: {
-        code:
-          'const EXCLUDED_PATH_ENDINGS = /(params,\\d+|property|id|key|imported|local)$/;',
-        dependencies: []
-      },
-      utils_nodesWhere: {
-        code: `const nodesWhere = (cond, node, path = []) =>
-          Object.keys(node && typeof node === 'object' ? node : []).reduce(
-            (res, key) => res.concat(nodesWhere(cond, node[key], path.concat(key))),
-            cond(node, path) ? [node] : []
-          );`,
-        dependencies: []
-      },
-      GetDeps_getDependencies: {
-        code: `const getDependencies = astNode =>
-          nodesWhere(
-            (val, path) =>
-              val &&
-              val.type === 'Identifier' &&
-              !EXCLUDED_PATH_ENDINGS.test(path.join(',')),
-            astNode
-          )
-            .map(o => o.name)
-            .filter(
-              (val, i, arr) => arr.indexOf(val) === i
-            )
-            .sort();`,
-        dependencies: ['utils_nodesWhere', 'GetDeps_EXCLUDED_PATH_ENDINGS']
-      },
-      GetDeps_GetDeps: {
-        code: `const GetDeps = origCode => {
-          const result = transform(origCode, {
-            babelrc: false,
-            plugins: ['transform-react-jsx', 'transform-object-rest-spread'],
-            code: false
-          });
-
-          return result.ast.program.body.map(astNode => ({
-            code: origCode.slice(astNode.start, astNode.end),
-            dependencies: getDependencies(astNode),
-            astNode
-          }));
-        };`,
-        dependencies: ['babel-core_transform', 'GetDeps_getDependencies']
-      },
       main_res: {
         code:
           "const res = GetDeps(fs.readFileSync('../ui/src/client/index.js').toString());",
         dependencies: ['GetDeps_GetDeps', 'fs']
       },
-      main_anonymous1: {
+      main_0: {
         code: "fs.writeFileSync('output.txt', JSON.stringify(res, null, 2));",
         dependencies: ['fs', 'main_res']
+      },
+      GetDeps_EXCLUDED_PATH_ENDINGS: {
+        code:
+          'const EXCLUDED_PATH_ENDINGS = /(params,\\d+|property|id|key|imported|local)$/;',
+        dependencies: []
+      },
+      GetDeps_getDependencies: {
+        code:
+          "const getDependencies = astNode =>\n  nodesWhere(\n    (val, path) =>\n      val &&\n      val.type === 'Identifier' &&\n      !EXCLUDED_PATH_ENDINGS.test(path.join(',')),\n    astNode\n  )\n    .map(o => o.name)\n    .filter((val, i, arr) => arr.indexOf(val) === i)\n    .sort();",
+        dependencies: ['GetDeps_EXCLUDED_PATH_ENDINGS', 'utils_nodesWhere']
+      },
+      GetDeps_GetDeps: {
+        code:
+          "export const GetDeps = origCode => {\n  const result = transform(origCode, {\n    babelrc: false,\n    plugins: ['transform-react-jsx', 'transform-object-rest-spread'],\n    code: false\n  });\n\n  return result.ast.program.body.map(astNode => ({\n    code: origCode.slice(astNode.start, astNode.end),\n    dependencies: getDependencies(astNode),\n    astNode\n  }));\n};",
+        dependencies: ['GetDeps_getDependencies', 'babel-core_transform']
+      },
+      utils_nodesWhere: {
+        code:
+          "export const nodesWhere = (cond, node, path = []) =>\n  Object.keys(node && typeof node === 'object' ? node : []).reduce(\n    (res, key) => res.concat(nodesWhere(cond, node[key], path.concat(key))),\n    cond(node, path) ? [node] : []\n  );",
+        dependencies: ['path']
       }
     });
   });
