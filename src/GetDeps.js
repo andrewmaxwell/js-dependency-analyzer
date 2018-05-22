@@ -4,10 +4,35 @@ const fs = require('fs');
 const Path = require('path');
 
 const EXCLUDED_PATH_ENDINGS = /(params,\d+|property|id|key|imported|local)$/;
-const LOCAL_DECLARATION_PATH_ENDINGS = /(declarations,\d+,id|params,\d+),name$/;
+const LOCAL_DECLARATION_PATH_ENDINGS = /(declarations,\d+,id|params,\d+(,left)?),name$/;
 const DECLARATION_PATH = /^(declaration,)?declarations,\d+,id,name$/;
 const IMPORT_PATH = /source,value$/;
-const builtIns = ['document', 'window', 'module', 'require', 'Object', 'JSON'];
+const builtIns = [
+  'document',
+  'window',
+  'module',
+  'require',
+  'Object',
+  'Function',
+  'Boolean',
+  'Symbol',
+  'Error',
+  'JSON',
+  'Date',
+  'undefined',
+  'Infinity',
+  'RegExp',
+  'parseInt',
+  'parseFloat',
+  'NaN',
+  'Math',
+  'String',
+  'Array',
+  'Promise',
+  'arguments',
+  'isNaN',
+  'console'
+];
 
 const isDeclaredIn = (name, astNode) =>
   nodesWhere(
@@ -39,37 +64,16 @@ const getDeclarations = astNode =>
 
 const getImportedFileNames = astNode =>
   nodesWhere(
-    (val, path) => val && val[0] === '.' && IMPORT_PATH.test(path.join(',')),
+    (val, path) =>
+      val && /^\.(.+)\.js$/.test(val) && IMPORT_PATH.test(path.join(',')),
     astNode
   );
 
-// const GetDeps = origCode => {
-//   const result = transform(origCode, {
-//     babelrc: false,
-//     plugins: ['transform-react-jsx', 'transform-object-rest-spread'],
-//     code: false
-//   });
-//
-//   return result.ast.program.body.map(astNode => ({
-//     code: origCode.slice(astNode.start, astNode.end),
-//     dependencies: getBlockDeps(astNode),
-//     declarations: getDeclarations(astNode),
-//     astNode
-//   }));
-// };
-
-const fileNameToId = fileName =>
-  fileName
-    .replace('/Users/amaxw/js-dependency-analyzer/testSrc/', '') // todo
-    .replace('.js', '')
-    .replace(/[^a-zA-Z0-9]+/g, '-');
-
 const normalize = (from, to) => Path.normalize(Path.dirname(from) + '/' + to);
 
-const GetDeps = entryFileName => {
+const getFiles = entryFileName => {
   const queue = [Path.resolve(entryFileName)];
-  const res = {};
-  let counter = 0;
+  const result = [];
 
   for (let i = 0; i < queue.length; i++) {
     const fileName = queue[i];
@@ -77,7 +81,11 @@ const GetDeps = entryFileName => {
     const code = fs.readFileSync(fileName).toString();
     const ast = transform(code, {
       babelrc: false,
-      plugins: ['transform-react-jsx', 'transform-object-rest-spread'],
+      plugins: [
+        'transform-react-jsx',
+        'transform-object-rest-spread',
+        'transform-class-properties'
+      ],
       code: false
     }).ast.program.body;
 
@@ -87,17 +95,25 @@ const GetDeps = entryFileName => {
         .filter(val => !queue.includes(val))
     );
 
-    const fileId = fileNameToId(fileName);
+    result[i] = {fileName, code, ast};
+  }
+  return result;
+};
 
+const withAst = false;
+const toId = (fileName, id) => id + '__' + fileName;
+
+const GetDeps = entryFileName =>
+  getFiles(entryFileName).reduce((res, {fileName, code, ast}, i) => {
     const importMapping = {};
 
     ast.forEach(astNode => {
       const declarations = getDeclarations(astNode);
       declarations.forEach(id => {
-        importMapping[id] = fileId + '_' + id;
+        importMapping[id] = toId(fileName, id);
       });
 
-      const func = {
+      const data = {
         code: code.slice(astNode.start, astNode.end),
         dependencies: getBlockDeps(astNode).map(dep => {
           if (!importMapping[dep]) {
@@ -105,29 +121,39 @@ const GetDeps = entryFileName => {
           }
           return importMapping[dep] || dep;
         })
-        // astNode
       };
 
+      if (withAst) data.astNode = astNode;
+
       if (astNode.type === 'ImportDeclaration') {
-        const impFileId = fileNameToId(
-          normalize(fileName, astNode.source.value)
-        );
+        const impFileName = astNode.source.value.startsWith('.')
+          ? normalize(fileName, astNode.source.value)
+          : astNode.source.value;
+
         astNode.specifiers.forEach(sp => {
-          if (sp.imported) {
-            importMapping[sp.imported.name] =
-              impFileId + '_' + sp.imported.name;
+          if (sp.type === 'ImportDefaultSpecifier') {
+            importMapping[sp.local.name] = toId(impFileName, 'default');
+          } else {
+            importMapping[sp.imported.name] = toId(
+              impFileName,
+              sp.imported.name
+            );
           }
         });
       } else if (!declarations.length) {
-        res[fileId + '_' + counter++] = func;
+        res[
+          toId(
+            fileName,
+            astNode.type === 'ExportDefaultDeclaration' ? 'default' : 'expr' + i
+          )
+        ] = data;
       }
 
       declarations.forEach(id => {
-        res[fileId + '_' + id] = func;
+        res[toId(fileName, id)] = data;
       });
     });
-  }
-  return res;
-};
+    return res;
+  }, {});
 
 module.exports = {GetDeps};

@@ -3,4 +3,4 @@
 .eslintcache
 node_modules
 *.log
-output.txt
+output.json

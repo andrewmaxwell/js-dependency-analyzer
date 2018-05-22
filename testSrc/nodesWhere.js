@@ -3,3 +3,5 @@ export const nodesWhere = (cond, node, path = []) =>
     (res, key) => res.concat(nodesWhere(cond, node[key], path.concat(key))),
     cond(node, path) ? [node] : []
   );
+
+export default nodesWhere;

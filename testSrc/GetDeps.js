@@ -1,5 +1,5 @@
 import {transform} from 'babel-core';
-import {nodesWhere} from './utils.js';
+import nodesWhere from './nodesWhere.js';
 
 const EXCLUDED_PATH_ENDINGS = /(params,\d+|property|id|key|imported|local)$/;
 

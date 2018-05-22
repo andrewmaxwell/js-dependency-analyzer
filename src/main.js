@@ -12,5 +12,6 @@ Optimizing dep tree
 const {GetDeps} = require('./GetDeps.js');
 const fs = require('fs');
 
-const res = GetDeps('./testSrc/main.js');
-fs.writeFileSync('output.txt', JSON.stringify(res, null, 2));
+// const res = GetDeps('./testSrc/main.js');
+const res = GetDeps('../ui/src/client/index.js');
+fs.writeFileSync('output.json', JSON.stringify(res, null, 2));
