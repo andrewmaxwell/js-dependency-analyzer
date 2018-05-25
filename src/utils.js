@@ -4,4 +4,17 @@ const nodesWhere = (cond, node, path = []) =>
     cond(node, path) ? [node] : []
   );
 
-module.exports = {nodesWhere};
+const deepWithout = (props, ob) =>
+  Array.isArray(ob)
+    ? ob.map(el => deepWithout(props, el))
+    : ob && typeof ob === 'object'
+      ? Object.keys(ob).reduce(
+          (res, key) =>
+            props.includes(key)
+              ? res
+              : {...res, [key]: deepWithout(props, ob[key])},
+          Array.isArray(ob) ? [] : {}
+        )
+      : ob;
+
+module.exports = {nodesWhere, deepWithout};

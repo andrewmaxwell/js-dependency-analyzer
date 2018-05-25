@@ -1,38 +1,73 @@
 const {transform} = require('babel-core');
-const {nodesWhere} = require('./utils.js');
+const {nodesWhere, deepWithout} = require('./utils.js');
 const fs = require('fs');
 const Path = require('path');
 
 const EXCLUDED_PATH_ENDINGS = /(params,\d+|property|id|key|imported|local)$/;
-const LOCAL_DECLARATION_PATH_ENDINGS = /(declarations,\d+,id|params,\d+(,left)?),name$/;
+const LOCAL_DECLARATION_PATH_ENDINGS = new RegExp(
+  `
+  (
+    (
+      (declarations,\\d+,id)
+      (
+        (,properties,\\d+,value)
+        |
+        (,elements,\\d+)
+      )*
+      (,argument)?
+    ) | (
+      (params,\\d+)
+      (
+        (,argument)
+        |
+        ((,left)?,properties,\\d+,value)+
+      )?
+    ) | (handler,param)
+  )
+  (,left)?
+  ,name$`.replace(/\s/g, '')
+);
 const DECLARATION_PATH = /^(declaration,)?declarations,\d+,id,name$/;
 const IMPORT_PATH = /source,value$/;
 const builtIns = [
-  'document',
-  'window',
-  'module',
-  'require',
-  'Object',
-  'Function',
-  'Boolean',
-  'Symbol',
-  'Error',
-  'JSON',
-  'Date',
-  'undefined',
-  'Infinity',
-  'RegExp',
-  'parseInt',
-  'parseFloat',
-  'NaN',
-  'Math',
-  'String',
   'Array',
+  'Boolean',
+  'Date',
+  'Error',
+  'File',
+  'FileReader',
+  'FormData',
+  'Function',
+  'Infinity',
+  'JSON',
+  'Math',
+  'NaN',
+  'Number',
+  'Object',
   'Promise',
+  'RegExp',
+  'Response',
+  'Set',
+  'String',
+  'Symbol',
+  '_extends',
   'arguments',
+  'clearInterval',
+  'clearTimeout',
+  'console',
+  'document',
+  'encodeURIComponent',
+  'fetch',
   'isNaN',
-  'console'
-];
+  'module',
+  'parseFloat',
+  'parseInt',
+  'require',
+  'setInterval',
+  'setTimeout',
+  'undefined',
+  'window'
+].reduce((res, el) => ({...res, [el]: true}), {});
 
 const isDeclaredIn = (name, astNode) =>
   nodesWhere(
@@ -46,7 +81,7 @@ const getBlockDeps = astNode =>
     (val, path) =>
       val &&
       val.type === 'Identifier' &&
-      !builtIns.includes(val.name) &&
+      !builtIns[val.name] &&
       !EXCLUDED_PATH_ENDINGS.test(path.join(',')),
     astNode
   )
@@ -101,7 +136,7 @@ const getFiles = entryFileName => {
 };
 
 const withAst = false;
-const toId = (fileName, id) => id + '__' + fileName;
+const toId = (fileName, imported) => imported + ':' + fileName;
 
 const GetDeps = entryFileName =>
   getFiles(entryFileName).reduce((res, {fileName, code, ast}, i) => {
@@ -117,9 +152,15 @@ const GetDeps = entryFileName =>
         code: code.slice(astNode.start, astNode.end),
         dependencies: getBlockDeps(astNode).map(dep => {
           if (!importMapping[dep]) {
-            console.log('No mapping found for', dep);
+            console.log(
+              JSON.stringify(deepWithout(['loc'], astNode), null, 2),
+              code.slice(astNode.start, astNode.end),
+              'No mapping found for',
+              dep
+            );
+            throw 'error';
           }
-          return importMapping[dep] || dep;
+          return {id: importMapping[dep], as: dep};
         })
       };
 
@@ -130,15 +171,12 @@ const GetDeps = entryFileName =>
           ? normalize(fileName, astNode.source.value)
           : astNode.source.value;
 
+        // console.log(data.code, JSON.stringify(astNode, null, 2));
         astNode.specifiers.forEach(sp => {
-          if (sp.type === 'ImportDefaultSpecifier') {
-            importMapping[sp.local.name] = toId(impFileName, 'default');
-          } else {
-            importMapping[sp.imported.name] = toId(
-              impFileName,
-              sp.imported.name
-            );
-          }
+          importMapping[sp.local ? sp.local.name : sp.imported.name] = toId(
+            impFileName,
+            sp.imported ? sp.imported.name : 'default'
+          );
         });
       } else if (!declarations.length) {
         res[

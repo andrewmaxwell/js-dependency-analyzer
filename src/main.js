@@ -15,3 +15,9 @@ const fs = require('fs');
 // const res = GetDeps('./testSrc/main.js');
 const res = GetDeps('../ui/src/client/index.js');
 fs.writeFileSync('output.json', JSON.stringify(res, null, 2));
+
+console.log(Object.keys(res).length, 'nodes');
+console.log(
+  Object.keys(res).reduce((sum, key) => sum + res[key].dependencies.length, 0),
+  'edges'
+);

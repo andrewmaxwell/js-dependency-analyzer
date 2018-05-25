@@ -7,51 +7,87 @@ require('fs').writeFileSync('output.json', JSON.stringify(data, null, 2));
 describe('GetDeps', () => {
   it('should build a dependency graph of a project', () => {
     expect(GetDeps('./testSrc/main.js')).to.deep.equal({
-      'res__/Users/amaxw/js-dependency-analyzer/testSrc/main.js': {
+      'abc:/Users/amaxw/js-dependency-analyzer/testSrc/main.js': {
+        code: "export const abc = (...args) => args.join('-');",
+        dependencies: []
+      },
+      'res:/Users/amaxw/js-dependency-analyzer/testSrc/main.js': {
         code:
-          "const res = GetDeps(fs.readFileSync('../ui/src/client/index.js').toString());",
+          "const res = getDeps(fs.readFileSync('../ui/src/client/index.js').toString());",
         dependencies: [
-          'GetDeps__/Users/amaxw/js-dependency-analyzer/testSrc/GetDeps.js',
-          'default__fs'
+          {
+            id: 'default:fs',
+            as: 'fs'
+          },
+          {
+            id:
+              'GetDeps:/Users/amaxw/js-dependency-analyzer/testSrc/GetDeps.js',
+            as: 'getDeps'
+          }
         ]
       },
-      'expr0__/Users/amaxw/js-dependency-analyzer/testSrc/main.js': {
+      'expr0:/Users/amaxw/js-dependency-analyzer/testSrc/main.js': {
         code: "fs.writeFileSync('output.json', JSON.stringify(res, null, 2));",
         dependencies: [
-          'default__fs',
-          'res__/Users/amaxw/js-dependency-analyzer/testSrc/main.js'
+          {
+            id: 'default:fs',
+            as: 'fs'
+          },
+          {
+            id: 'res:/Users/amaxw/js-dependency-analyzer/testSrc/main.js',
+            as: 'res'
+          }
         ]
       },
-      'EXCLUDED_PATH_ENDINGS__/Users/amaxw/js-dependency-analyzer/testSrc/GetDeps.js': {
+      'EXCLUDED_PATH_ENDINGS:/Users/amaxw/js-dependency-analyzer/testSrc/GetDeps.js': {
         code:
           'const EXCLUDED_PATH_ENDINGS = /(params,\\d+|property|id|key|imported|local)$/;',
         dependencies: []
       },
-      'getDependencies__/Users/amaxw/js-dependency-analyzer/testSrc/GetDeps.js': {
+      'getDependencies:/Users/amaxw/js-dependency-analyzer/testSrc/GetDeps.js': {
         code:
           "const getDependencies = astNode =>\n  nodesWhere(\n    (val, path) =>\n      val &&\n      val.type === 'Identifier' &&\n      !EXCLUDED_PATH_ENDINGS.test(path.join(',')),\n    astNode\n  )\n    .map(o => o.name)\n    .filter((val, i, arr) => arr.indexOf(val) === i)\n    .sort();",
         dependencies: [
-          'EXCLUDED_PATH_ENDINGS__/Users/amaxw/js-dependency-analyzer/testSrc/GetDeps.js',
-          'default__/Users/amaxw/js-dependency-analyzer/testSrc/nodesWhere.js'
+          {
+            id:
+              'EXCLUDED_PATH_ENDINGS:/Users/amaxw/js-dependency-analyzer/testSrc/GetDeps.js',
+            as: 'EXCLUDED_PATH_ENDINGS'
+          },
+          {
+            id:
+              'default:/Users/amaxw/js-dependency-analyzer/testSrc/nodesWhere.js',
+            as: 'nodesWhere'
+          }
         ]
       },
-      'GetDeps__/Users/amaxw/js-dependency-analyzer/testSrc/GetDeps.js': {
+      'GetDeps:/Users/amaxw/js-dependency-analyzer/testSrc/GetDeps.js': {
         code:
           "export const GetDeps = origCode => {\n  const result = transform(origCode, {\n    babelrc: false,\n    plugins: ['transform-react-jsx', 'transform-object-rest-spread'],\n    code: false\n  });\n\n  return result.ast.program.body.map(astNode => ({\n    code: origCode.slice(astNode.start, astNode.end),\n    dependencies: getDependencies(astNode),\n    astNode\n  }));\n};",
         dependencies: [
-          'getDependencies__/Users/amaxw/js-dependency-analyzer/testSrc/GetDeps.js',
-          'transform__babel-core'
+          {
+            id:
+              'getDependencies:/Users/amaxw/js-dependency-analyzer/testSrc/GetDeps.js',
+            as: 'getDependencies'
+          },
+          {
+            id: 'transform:babel-core',
+            as: 'transform'
+          }
         ]
       },
-      'nodesWhere__/Users/amaxw/js-dependency-analyzer/testSrc/nodesWhere.js': {
+      'nodesWhere:/Users/amaxw/js-dependency-analyzer/testSrc/nodesWhere.js': {
         code:
           "export const nodesWhere = (cond, node, path = []) =>\n  Object.keys(node && typeof node === 'object' ? node : []).reduce(\n    (res, key) => res.concat(nodesWhere(cond, node[key], path.concat(key))),\n    cond(node, path) ? [node] : []\n  );",
         dependencies: []
       },
-      'default__/Users/amaxw/js-dependency-analyzer/testSrc/nodesWhere.js': {
+      'default:/Users/amaxw/js-dependency-analyzer/testSrc/nodesWhere.js': {
         code: 'export default nodesWhere;',
         dependencies: [
-          'nodesWhere__/Users/amaxw/js-dependency-analyzer/testSrc/nodesWhere.js'
+          {
+            id:
+              'nodesWhere:/Users/amaxw/js-dependency-analyzer/testSrc/nodesWhere.js',
+            as: 'nodesWhere'
+          }
         ]
       }
     });
