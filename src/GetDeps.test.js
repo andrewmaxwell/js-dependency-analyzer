@@ -1,15 +1,16 @@
-const {GetDeps} = require('./GetDeps.js');
-const {expect} = require('chai');
+import {GetDeps} from './GetDeps.js';
+import {expect} from 'chai';
 
-const data = GetDeps('./testSrc/main.js');
+const data = GetDeps(['./testSrc/main.js']);
 require('fs').writeFileSync('output.json', JSON.stringify(data, null, 2));
 
 describe('GetDeps', () => {
   it('should build a dependency graph of a project', () => {
-    expect(GetDeps('./testSrc/main.js')).to.deep.equal({
+    expect(data).to.deep.equal({
       'abc:/Users/amaxw/js-dependency-analyzer/testSrc/main.js': {
         code: "export const abc = (...args) => args.join('-');",
-        dependencies: []
+        dependencies: [],
+        dependants: []
       },
       'res:/Users/amaxw/js-dependency-analyzer/testSrc/main.js': {
         code:
@@ -24,6 +25,9 @@ describe('GetDeps', () => {
               'GetDeps:/Users/amaxw/js-dependency-analyzer/testSrc/GetDeps.js',
             as: 'getDeps'
           }
+        ],
+        dependants: [
+          'expr0:/Users/amaxw/js-dependency-analyzer/testSrc/main.js'
         ]
       },
       'expr0:/Users/amaxw/js-dependency-analyzer/testSrc/main.js': {
@@ -37,12 +41,16 @@ describe('GetDeps', () => {
             id: 'res:/Users/amaxw/js-dependency-analyzer/testSrc/main.js',
             as: 'res'
           }
-        ]
+        ],
+        dependants: []
       },
       'EXCLUDED_PATH_ENDINGS:/Users/amaxw/js-dependency-analyzer/testSrc/GetDeps.js': {
         code:
           'const EXCLUDED_PATH_ENDINGS = /(params,\\d+|property|id|key|imported|local)$/;',
-        dependencies: []
+        dependencies: [],
+        dependants: [
+          'getDependencies:/Users/amaxw/js-dependency-analyzer/testSrc/GetDeps.js'
+        ]
       },
       'getDependencies:/Users/amaxw/js-dependency-analyzer/testSrc/GetDeps.js': {
         code:
@@ -58,6 +66,9 @@ describe('GetDeps', () => {
               'default:/Users/amaxw/js-dependency-analyzer/testSrc/nodesWhere.js',
             as: 'nodesWhere'
           }
+        ],
+        dependants: [
+          'GetDeps:/Users/amaxw/js-dependency-analyzer/testSrc/GetDeps.js'
         ]
       },
       'GetDeps:/Users/amaxw/js-dependency-analyzer/testSrc/GetDeps.js': {
@@ -73,12 +84,16 @@ describe('GetDeps', () => {
             id: 'transform:babel-core',
             as: 'transform'
           }
-        ]
+        ],
+        dependants: ['res:/Users/amaxw/js-dependency-analyzer/testSrc/main.js']
       },
       'nodesWhere:/Users/amaxw/js-dependency-analyzer/testSrc/nodesWhere.js': {
         code:
           "export const nodesWhere = (cond, node, path = []) =>\n  Object.keys(node && typeof node === 'object' ? node : []).reduce(\n    (res, key) => res.concat(nodesWhere(cond, node[key], path.concat(key))),\n    cond(node, path) ? [node] : []\n  );",
-        dependencies: []
+        dependencies: [],
+        dependants: [
+          'default:/Users/amaxw/js-dependency-analyzer/testSrc/nodesWhere.js'
+        ]
       },
       'default:/Users/amaxw/js-dependency-analyzer/testSrc/nodesWhere.js': {
         code: 'export default nodesWhere;',
@@ -88,6 +103,9 @@ describe('GetDeps', () => {
               'nodesWhere:/Users/amaxw/js-dependency-analyzer/testSrc/nodesWhere.js',
             as: 'nodesWhere'
           }
+        ],
+        dependants: [
+          'getDependencies:/Users/amaxw/js-dependency-analyzer/testSrc/GetDeps.js'
         ]
       }
     });

@@ -1,10 +1,10 @@
-const nodesWhere = (cond, node, path = []) =>
+export const nodesWhere = (cond, node, path = []) =>
   Object.keys(node && typeof node === 'object' ? node : []).reduce(
     (res, key) => res.concat(nodesWhere(cond, node[key], path.concat(key))),
     cond(node, path) ? [node] : []
   );
 
-const deepWithout = (props, ob) =>
+export const deepWithout = (props, ob) =>
   Array.isArray(ob)
     ? ob.map(el => deepWithout(props, el))
     : ob && typeof ob === 'object'
@@ -17,4 +17,10 @@ const deepWithout = (props, ob) =>
         )
       : ob;
 
-module.exports = {nodesWhere, deepWithout};
+export const logJSON = (...args) => {
+  console.log(
+    ...args.map(
+      el => (el && typeof el === 'object' ? JSON.stringify(el, null, 2) : el)
+    )
+  );
+};

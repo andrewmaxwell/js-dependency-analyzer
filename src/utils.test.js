@@ -1,5 +1,5 @@
-const {nodesWhere} = require('./utils.js');
-const {expect} = require('chai');
+import {nodesWhere} from './utils.js';
+import {expect} from 'chai';
 
 describe('nodesWhere', () => {
   it('should return an array of nodes that match a predicate from a structure', () => {

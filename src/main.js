@@ -9,15 +9,37 @@ Optimizing dep tree
 
 */
 
-const {GetDeps} = require('./GetDeps.js');
-const fs = require('fs');
+import {GetDeps} from './GetDeps.js';
+import fs from 'fs';
 
-// const res = GetDeps('./testSrc/main.js');
-const res = GetDeps('../ui/src/client/index.js');
+// const res = GetDeps('./src/main.js');
+const res = GetDeps(['../ui/src/client/index.js', '../ui/src/server/App.js']);
 fs.writeFileSync('output.json', JSON.stringify(res, null, 2));
 
-console.log(Object.keys(res).length, 'nodes');
+Object.keys(res).forEach(id => {
+  if (!res[id].dependants.length && !id.startsWith('expr')) {
+    console.log(id, 'has no dependants!');
+  }
+});
+
+const keys = Object.keys(res);
+// fs.writeFileSync(
+//   'output.json',
+//   keys
+//     .reduce(
+//       (d, key) =>
+//         d.concat(
+//           res[key].dependencies
+//             .filter(p => res[p.id])
+//             .map(p => key + ' ' + p.id)
+//         ),
+//       []
+//     )
+//     .filter((el, i, arr) => arr.indexOf(el) === i)
+//     .join('\n')
+//     .replace(/\/Users\/amaxw\/ui\/src\/(client\/)?|\.js/g, '')
+// );
+console.log(keys.length + ' nodes');
 console.log(
-  Object.keys(res).reduce((sum, key) => sum + res[key].dependencies.length, 0),
-  'edges'
+  keys.reduce((sum, key) => sum + res[key].dependencies.length, 0) + ' edges'
 );

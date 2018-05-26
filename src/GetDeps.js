@@ -1,7 +1,7 @@
-const {transform} = require('babel-core');
-const {nodesWhere, deepWithout} = require('./utils.js');
-const fs = require('fs');
-const Path = require('path');
+import {transform} from 'babel-core';
+import {nodesWhere, deepWithout, logJSON} from './utils.js';
+import fs from 'fs';
+import Path from 'path';
 
 const EXCLUDED_PATH_ENDINGS = /(params,\d+|property|id|key|imported|local)$/;
 const LOCAL_DECLARATION_PATH_ENDINGS = new RegExp(
@@ -66,7 +66,8 @@ const builtIns = [
   'setInterval',
   'setTimeout',
   'undefined',
-  'window'
+  'window',
+  'process'
 ].reduce((res, el) => ({...res, [el]: true}), {});
 
 const isDeclaredIn = (name, astNode) =>
@@ -77,17 +78,21 @@ const isDeclaredIn = (name, astNode) =>
   ).length > 0;
 
 const getBlockDeps = astNode =>
-  nodesWhere(
-    (val, path) =>
-      val &&
-      val.type === 'Identifier' &&
-      !builtIns[val.name] &&
-      !EXCLUDED_PATH_ENDINGS.test(path.join(',')),
-    astNode
-  )
-    .map(o => o.name)
+  [
+    ...nodesWhere(
+      (val, path) =>
+        val &&
+        val.type === 'Identifier' &&
+        !EXCLUDED_PATH_ENDINGS.test(path.join(',')),
+      astNode
+    ).map(o => o.name),
+    ...nodesWhere(val => val && val.computed && val.property, astNode).map(
+      o => o.property.name
+    )
+  ]
     .filter(
-      (val, i, arr) => arr.indexOf(val) === i && !isDeclaredIn(val, astNode)
+      (val, i, arr) =>
+        !builtIns[val] && arr.indexOf(val) === i && !isDeclaredIn(val, astNode)
     )
     .sort();
 
@@ -106,8 +111,8 @@ const getImportedFileNames = astNode =>
 
 const normalize = (from, to) => Path.normalize(Path.dirname(from) + '/' + to);
 
-const getFiles = entryFileName => {
-  const queue = [Path.resolve(entryFileName)];
+const getFiles = entryPoints => {
+  const queue = entryPoints.map(p => Path.resolve(p));
   const result = [];
 
   for (let i = 0; i < queue.length; i++) {
@@ -122,7 +127,9 @@ const getFiles = entryFileName => {
         'transform-class-properties'
       ],
       code: false
-    }).ast.program.body;
+    }).ast.program.body.map(item =>
+      deepWithout(['loc'], {...item, code: code.slice(item.start, item.end)})
+    );
 
     queue.push(
       ...getImportedFileNames(ast)
@@ -130,48 +137,45 @@ const getFiles = entryFileName => {
         .filter(val => !queue.includes(val))
     );
 
-    result[i] = {fileName, code, ast};
+    result[i] = {fileName, ast};
   }
   return result;
 };
 
-const withAst = false;
 const toId = (fileName, imported) => imported + ':' + fileName;
 
-const GetDeps = entryFileName =>
-  getFiles(entryFileName).reduce((res, {fileName, code, ast}, i) => {
+export const GetDeps = entryPoints => {
+  const deps = getFiles(entryPoints).reduce((res, {fileName, ast}) => {
     const importMapping = {};
 
+    let idCounter = 0;
     ast.forEach(astNode => {
       const declarations = getDeclarations(astNode);
+      if (declarations[0] === '_extends') return;
+
       declarations.forEach(id => {
         importMapping[id] = toId(fileName, id);
       });
 
       const data = {
-        code: code.slice(astNode.start, astNode.end),
+        code: astNode.code,
         dependencies: getBlockDeps(astNode).map(dep => {
           if (!importMapping[dep]) {
-            console.log(
-              JSON.stringify(deepWithout(['loc'], astNode), null, 2),
-              code.slice(astNode.start, astNode.end),
-              'No mapping found for',
-              dep
-            );
-            throw 'error';
+            logJSON(astNode);
+            throw 'No mapping found for' + dep;
           }
           return {id: importMapping[dep], as: dep};
-        })
+        }),
+        dependants: []
       };
 
-      if (withAst) data.astNode = astNode;
+      // logJSON('\n********\n\nastNode', astNode, data.dependencies);
 
       if (astNode.type === 'ImportDeclaration') {
         const impFileName = astNode.source.value.startsWith('.')
           ? normalize(fileName, astNode.source.value)
           : astNode.source.value;
 
-        // console.log(data.code, JSON.stringify(astNode, null, 2));
         astNode.specifiers.forEach(sp => {
           importMapping[sp.local ? sp.local.name : sp.imported.name] = toId(
             impFileName,
@@ -182,7 +186,9 @@ const GetDeps = entryFileName =>
         res[
           toId(
             fileName,
-            astNode.type === 'ExportDefaultDeclaration' ? 'default' : 'expr' + i
+            astNode.type === 'ExportDefaultDeclaration'
+              ? 'default'
+              : 'expr' + idCounter++
           )
         ] = data;
       }
@@ -194,4 +200,12 @@ const GetDeps = entryFileName =>
     return res;
   }, {});
 
-module.exports = {GetDeps};
+  Object.keys(deps).forEach(id => {
+    deps[id].dependencies.forEach(dep => {
+      if (deps[dep.id]) {
+        deps[dep.id].dependants.push(id);
+      }
+    });
+  });
+  return deps;
+};
