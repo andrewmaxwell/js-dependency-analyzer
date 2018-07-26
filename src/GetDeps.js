@@ -207,5 +207,12 @@ export const GetDeps = entryPoints => {
       }
     });
   });
+
+  Object.keys(deps).forEach(id => {
+    if (!deps[id].dependants.length && !id.startsWith('expr')) {
+      console.log(id, 'has no dependants!');
+    }
+  });
+
   return deps;
 };

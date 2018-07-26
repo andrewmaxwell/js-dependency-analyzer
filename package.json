@@ -6,6 +6,7 @@
   "scripts": {
     "test": "mocha -w -r babel-register 'src/**/*.test.js'",
     "start": "babel-node src/main.js",
+    "optimize": "babel-node src/optimize.js",
     "lint": "eslint src"
   },
   "dependencies": {

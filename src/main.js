@@ -14,13 +14,10 @@ import fs from 'fs';
 
 // const res = GetDeps('./src/main.js');
 const res = GetDeps(['../ui/src/client/index.js', '../ui/src/server/App.js']);
-fs.writeFileSync('output.json', JSON.stringify(res, null, 2));
-
-Object.keys(res).forEach(id => {
-  if (!res[id].dependants.length && !id.startsWith('expr')) {
-    console.log(id, 'has no dependants!');
-  }
-});
+fs.writeFileSync(
+  'output.json',
+  JSON.stringify(res, null, 2).replace(/\/Users\/amaxw\/ui\/src\//g, '')
+);
 
 const keys = Object.keys(res);
 // fs.writeFileSync(

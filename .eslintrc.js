@@ -14,9 +14,7 @@ module.exports = {
   ],
   plugins: ['prettier'],
   rules: {
-    'prefer-const': 'warn',
     'prefer-arrow-callback': 'warn',
-    'no-var': 'error',
     'no-bitwise': 'error',
     'func-style': 'warn',
     'no-octal-escape': 'error',
